@@ -1,0 +1,148 @@
+#+title: Awesome LLaMA
+
+这其中发展生态最好的当属Meta的LLaMA模型。如果GPT系列是Windows操作系统(巧了，OpenAI的大东家目前就是微软)，那么LLaMA就是Linux。如果GPT系列是苹果手机，那么LLaMA就是安卓。如果你想基于大模型做一些事情，无论是创业还是研究，最好选择一个生态好的模型，毕竟有人用才有市场。
+
+ChatGPT演化的路径如下图所示。
+
+[[./images/GPT_Assistant_training_pipeline.jpeg]]
+
+
+图片中分了4个阶段，但是第三个和第四个阶段一般都会放在一起，属于对齐阶段。所以一般会分成如下3个阶段：
+ - Stage 1: 预训练(Pretrain)
+ - Stage 2: 监督微调(SFT)
+ - Stage 3: 对齐(Reward Model + RLHF)
+
+既然已经有了成功ChatGPT这一成功的案例，大家都想基于LLaMA把这条路再走一遍，以期望做出自己的ChatGPT。
+
+所以基于LLaMA的模型虽然很多，但是基本都可以放到上面3个框架当中。本文就沿着预训练、监督微调、对齐(RW+RLHF)这一路径来梳理一下LLaMA生态中的各个模型。主要是点出这些模型处在大模型训练的那一个阶段，以及都做了哪些创新性的工作。
+
+
+
+
+* Stage1 预训练: LLaMA 复现
+** RedPajama
+   - 参考LLaMA论文中的训练数据，收集并且开源可商用。
+   - https://github.com/togethercomputer/RedPajama-Data
+
+** Baichuan
+   - 采用LLaMA的相同架构，在中文上做的预训练。可商用。
+   - 王小川这次做大模型的切入点其实挺不错的，绑定到LLaMA的生态上，然后在中文上有所突破。可能也在构思新三级火箭了吧。
+   - https://github.com/baichuan-inc/baichuan-7B
+** OpenLLaMA
+   - 参考LLaMA的代码，在Apache 2.0 license下的重新实现和训练。使用了RedPajama训练集合。
+   - https://github.com/openlm-research/open_llama
+
+** Lit-LLaMA ️
+   - 参考LLaMA，在Apache 2.0 license下的只有代码的重新实现。同时支持加载原始LLaMA和OpenLLaMA的权重。
+   - https://github.com/Lightning-AI/lit-llama
+
+* Stage 2: 监督微调
+  因为预训练模型本质上还是个续写模型，所以并不能很好的满足人们的需求，所以监督微调的作用就是微调模型产生理想的回复。
+  在监督微调这里，大家目标都是一样的，但是做法有些不同，主要是有钱和没钱的区别。有钱你可以全参数微调，没钱就只能使用一些低成本的方法，英文叫PEFT(Parameter-Efficient Fine-Tuning)。
+  PEFT确实是想我这种平民玩家的首选，但是有钱也可以用PEFT，它可以让你微调更大的模型。比如我们就只能玩玩10B的，有点小钱用PEFT玩个几十B的问题不大。
+  
+** LLaMA + Instruction Finetuning(全量参数)
+
+*** Alpaca
+   - llama7b + self-instruct数据指令微调。算是最早迈出LLaMA+SFT这一步的模型。早起并没有提供权重，后来通过diff的方式给出，需要LLaMA原始模型才能恢复，github上有教程。
+   - 当时他们采用1张8卡A100(80G显存)，52k的数据，训练了3个小时。训练成本大概是100刀。
+   - https://github.com/tatsu-lab/stanford_alpaca
+**** 衍生模型
+   - BELLE: 最早是基于BLOOM的，后来也支持LLaMA https://github.com/LianjiaTech/BELLE
+   - openAlpaca: OpenLLaMA + databricks-dolly-15k dataset 进行指令微调 https://github.com/yxuansu/OpenAlpaca
+    - gpt4-x-alpaca: 用GPT4的数据微调，数据集为GPTeacher https://huggingface.co/chavinlo/gpt4-x-alpaca
+     
+*** Vicuna
+   - llama13b + ShareGPT对话数据，微调
+   - 研发团队基于Vicuna发布了FastChat对话机器人。
+   - 和Alpaca一样，受协议限制，vicuna模型公布的权重也是个delta，每个参数要加上llama原来的权重才是模型权重。
+   - https://github.com/lm-sys/FastChat
+**** 衍生模型
+    - gpt4-x-vicuna-13b: 用GPT4的数据微调，数据集为GPTeacher https://huggingface.co/NousResearch/gpt4-x-vicuna-13b
+
+
+*** WizardLM
+   - 采用了Evol-Instruct来构造指令，可以产生一些很难的指令.
+     1. 深度演化包括五种操作：添加约束、深化、具体化、增加推理步骤并使输入复杂化。
+     2. In-breadth Evolving 是突变，即根据给定的指令生成全新的指令
+     3. 进化是通过提示LLM来实现的。
+   - https://github.com/nlpxucan/WizardLM
+*** TÜLU
+   - 使用LLaMA + Human/GPT data mix 微调
+   - 验证了很多结论，论文值得一看。https://arxiv.org/abs/2306.04751
+   - https://github.com/allenai/open-instruct
+
+*** GPT4ALL
+   - LLaMA用80w的GPT3.5的数据(code, story, conversation)微调而来。
+   - https://github.com/nomic-ai/gpt4all
+*** Koala
+   - LLaMA13B基于ChatGPT Distillation Data和Open Source Data训练而来。
+   - 具体数据见下面：
+     - https://bair.berkeley.edu/blog/2023/04/03/koala/
+
+*** OpenBuddy
+   - 基于LLaMA，Falcon, OpenLLaMA微调的，只说用了对话数据，细节没透漏。
+   - https://github.com/OpenBuddy/OpenBuddy
+*** Pygmalion 7B
+   - 给予LLaMA微调，使用了不同来源的56MB 的对话数据，包含了人工和机器。
+   - https://huggingface.co/PygmalionAI/pygmalion-7b
+** LLaMA + PEFT
+   PEFT目前最流行的是LoRA，挺巧妙的架构，可以看看https://arxiv.org/abs/2106.09685。 下面大多数的模型都是LLaMA+lora的架构，不只是文本，AIGC的头部网站civitai.com上很多模型也都是基于lora的。
+   最近还出了QLoRA，在LoRA的基础上加入了量化，进一步降低显存的使用。https://arxiv.org/abs/2305.14314。
+
+*** Baize
+   - LLaMA + Lora
+   - https://github.com/project-baize/baize-chatbot
+
+*** LLaMA-Adapter
+   - LLaMA + Adapter Layer
+   - https://github.com/OpenGVLab/LLaMA-Adapter
+
+*** CalderaAI/30B-Lazarus
+   - 似乎是多个LoRA的merge，但是没太公布太多细节。
+   - 在huggingface的leaderboard上排名还挺靠前。
+   - https://huggingface.co/CalderaAI/30B-Lazarus
+*** Chinese-LLaMA-Alpaca
+   - https://arxiv.org/pdf/2304.08177.pdf
+   - LLaMA + 扩词表 + lora
+   - Chinese LLaMA是属于局部参数预训练
+     - Stage1: frozen encoder，只用来训练Embedding层。
+     - Stage2: 只训练Embedding, LM head, lora weights
+   - 在Chinese LLaMA的基础上，仿照Alpaca训练了Chinese Alpaca
+   - https://github.com/ymcui/Chinese-LLaMA-Alpaca
+*** Chinese-Vicuna
+   - 基于：https://github.com/tloen/alpaca-lora
+   - lora + 中文instruction数据
+   - chatv1的数据使用了50k中文指令+对话混合数据。
+   - 并没有扩充词表，据说Vicuna1.1并没有扩充词表，但是中文效果不错。扩词表可能会损害模型能力？
+   - https://github.com/Facico/Chinese-Vicuna
+
+* Stage 3: 对齐(LLaMA + FT + RHLF)
+  - 这部分可以说是把ChatGPT的路径完整走了一遍。
+** StableVicuna
+   - Vicuna = LLaMA + FT
+   - StableVicuna = Vicuna + RLHF
+   - https://github.com/Stability-AI/StableLM
+** StackLLaMA
+   - SFT: LLaMA + Lora
+   - RM: LLaMA + Lora + 分类
+   - https://huggingface.co/blog/zh/stackllama
+
+* 其他：LLaMA 推理优化
+*** llama.cpp
+    - 用C/C++实现的推理，不依赖显卡。
+    - https://github.com/ggerganov/llama.cpp
+
+*** GPTQ-for-LLaMA
+    - 4 bits quantization of LLaMA using GPTQ.
+    - https://github.com/qwopqwop200/GPTQ-for-LLaMa
+
+
+* 写在最后
+
+上面的模型github中一般都有模型下载，但是国内的网络你懂得，有时候下载不下来。如果需要LLaMA模型的权重，可以看这一篇：
+ - [[https://mp.weixin.qq.com/s/UebaLcfCxJdwiogXzFu37g][ChatGPT平替模型：LLaMA（附下载地址，平民玩家和伸手党的福音！]]
+
+目前一些大模型的思考放到了公众号上，欢迎关注交流：
+
+[[./images/kantuxue_qr.jpeg]]
